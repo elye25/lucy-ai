@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Lucy AI Assistant</title>
+
+<link rel="manifest" href="manifest.json">
+
+<meta name="theme-color" content="#07111d">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #07111d;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+}
+
+header {
+    font-size: 38px;
+    letter-spacing: 8px;
+    color: #64f5e5;
+    padding: 25px;
+    font-weight: bold;
+}
+
+.orb {
+    width: 190px;
+    height: 190px;
+    border: 3px solid #64f5e5;
+    border-radius: 50%;
+    margin: 35px auto;
+    display: grid;
+    place-items: center;
+    font-size: 75px;
+    color: #64f5e5;
+    box-shadow: 0 0 35px #00ffe0;
+}
+
+#status {
+    font-size: 20px;
+    color: #64f5e5;
+}
+
+.panel {
+    background: #112235;
+    padding: 22px;
+    border-radius: 18px;
+    margin-top: 25px;
+    text-align: left;
+}
+
+#response {
+    font-size: 22px;
+    line-height: 1.6;
+}
+
+input {
+    width: 100%;
+    padding: 20px;
+    margin-top: 25px;
+    background: #162b40;
+    color: white;
+    border: 2px solid #64f5e5;
+    border-radius: 12px;
+    font-size: 19px;
+}
+
+button {
+    width: 100%;
+    padding: 20px;
+    margin-top: 15px;
+    background: #64f5e5;
+    color: #07111d;
+    border: none;
+    border-radius: 14px;
+    font-size: 19px;
+    font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>LUCY</header>
+
+<p>YOUR PERSONAL AI ASSISTANT</p>
+
+<div class="orb">✧</div>
+
+<p id="status">SYSTEM ONLINE</p>
+
+<div class="panel">
+<h2>LUCY'S RESPONSE</h2>
+<div id="response">
+Hello Elijah. I am Lucy. Ready to assist you.
+</div>
+</div>
+
+<input
+id="message"
+placeholder="Type your message here"
+aria-label="Message to Lucy"
+>
+
+<button onclick="talk()">SEND MESSAGE</button>
+
+<button onclick="listen()">TALK TO LUCY 🎙️</button>
+
+<button onclick="repeat()">REPEAT RESPONSE 🔊</button>
+
+<script>
+
+let lastResponse = "Hello Elijah. I am Lucy.";
+
+function talk() {
+    let message = document.getElementById("message").value.trim();
+
+    if (!message) return;
+
+    respond(message);
+    document.getElementById("message").value = "";
+}
+
+function respond(message) {
+
+    let input = message.toLowerCase();
+    let answer;
+
+    if (input.includes("hello")) {
+        answer = "Hello Elijah. How can I help you?";
+    }
+
+    else if (input.includes("your name")) {
+        answer = "My name is Lucy. I am your personal assistant.";
+    }
+
+    else if (input.includes("who created you")) {
+        answer = "I was created by Elijah.";
+    }
+
+    else if (input.includes("time")) {
+        answer = "The time is " + new Date().toLocaleTimeString();
+    }
+
+    else if (input.includes("date")) {
+        answer = "Today is " + new Date().toDateString();
+    }
+
+    else if (input.includes("how are you")) {
+        answer = "I am operational and ready to assist you.";
+    }
+
+    else {
+        answer = "I heard you say " + message +
+        ". My advanced AI brain is coming soon.";
+    }
+
+    lastResponse = answer;
+
+    document.getElementById("response").innerText = answer;
+
+    speak(answer);
+}
+
+function speak(text) {
+
+    if (!window.speechSynthesis) return;
+
+    speechSynthesis.cancel();
+
+    let voice = new SpeechSynthesisUtterance(text);
+
+    voice.lang = "en-GB";
+    voice.rate = 0.9;
+    voice.pitch = 1;
+
+    speechSynthesis.speak(voice);
+}
+
+function repeat() {
+    speak(lastResponse);
+}
+
+function listen() {
+
+    const Recognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+    if (!Recognition) {
+        alert("Speech recognition is unavailable in this browser.");
+        return;
+    }
+
+    let recognition = new Recognition();
+
+    recognition.lang = "en-GB";
+
+    recognition.onstart = function() {
+        document.getElementById("status").innerText =
+        "LUCY IS LISTENING";
+    };
+
+    recognition.onresult = function(event) {
+
+        let words = event.results[0][0].transcript;
+
+        document.getElementById("message").value = words;
+
+        respond(words);
+    };
+
+    recognition.onend = function() {
+        document.getElementById("status").innerText =
+        "SYSTEM ONLINE";
+    };
+
+    recognition.start();
+}
+
+// Register offline support when served through HTTPS.
+if ("serviceWorker" in navigator &&
+    location.protocol.startsWith("http")) {
+
+    navigator.serviceWorker.register("./service-worker.js")
+    .catch(error => console.log("Offline setup:", error));
+
+}
+
+</script>
+
+</body>
+</html>
