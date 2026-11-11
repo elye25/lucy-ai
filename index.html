@@ -7,7 +7,6 @@
 <title>Lucy AI Assistant</title>
 
 <link rel="manifest" href="manifest.json">
-
 <meta name="theme-color" content="#07111d">
 
 <style>
@@ -61,6 +60,7 @@ header {
 #response {
     font-size: 22px;
     line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 input {
@@ -86,6 +86,20 @@ button {
     font-weight: bold;
 }
 
+button:disabled {
+    opacity: 0.55;
+}
+
+button:focus, input:focus {
+    outline: 3px solid white;
+    outline-offset: 3px;
+}
+
+footer {
+    margin-top: 30px;
+    color: #64f5e5;
+    font-size: 14px;
+}
 </style>
 </head>
 
@@ -95,100 +109,168 @@ button {
 
 <p>YOUR PERSONAL AI ASSISTANT</p>
 
-<div class="orb">✧</div>
+<div class="orb" aria-hidden="true">✧</div>
 
-<p id="status">SYSTEM ONLINE</p>
+<p id="status" role="status" aria-live="polite">
+SYSTEM ONLINE
+</p>
 
 <div class="panel">
 <h2>LUCY'S RESPONSE</h2>
-<div id="response">
+
+<div id="response" aria-live="polite">
 Hello Elijah. I am Lucy. Ready to assist you.
 </div>
 </div>
 
 <input
 id="message"
+type="text"
 placeholder="Type your message here"
 aria-label="Message to Lucy"
 >
 
-<button onclick="talk()">SEND MESSAGE</button>
+<button id="sendButton" onclick="talk()">
+SEND MESSAGE
+</button>
 
-<button onclick="listen()">TALK TO LUCY 🎙️</button>
+<button onclick="listen()">
+TALK TO LUCY 🎙️
+</button>
 
-<button onclick="repeat()">REPEAT RESPONSE 🔊</button>
+<button onclick="repeat()">
+REPEAT RESPONSE 🔊
+</button>
+
+<footer>
+LUCY AI • POWERED BY GEMINI
+</footer>
 
 <script>
 
+const BACKEND =
+"https://lucy-ai-backend.elijahkungu513.workers.dev";
+
 let lastResponse = "Hello Elijah. I am Lucy.";
 
-function talk() {
-    let message = document.getElementById("message").value.trim();
+let recognition = null;
 
-    if (!message) return;
+async function talk() {
 
-    respond(message);
-    document.getElementById("message").value = "";
+    const input = document.getElementById("message");
+
+    const message = input.value.trim();
+
+    if (!message) {
+        showStatus("PLEASE ENTER A MESSAGE");
+        return;
+    }
+
+    input.value = "";
+
+    await respond(message);
 }
 
-function respond(message) {
+async function respond(message) {
 
-    let input = message.toLowerCase();
-    let answer;
+    const responseBox =
+        document.getElementById("response");
 
-    if (input.includes("hello")) {
-        answer = "Hello Elijah. How can I help you?";
+    const sendButton =
+        document.getElementById("sendButton");
+
+    try {
+
+        showStatus("LUCY IS THINKING...");
+
+        sendButton.disabled = true;
+
+        responseBox.innerText =
+            "Please wait. Lucy is preparing your answer.";
+
+        const result = await fetch(
+            BACKEND + "/chat",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    message: message
+                })
+            }
+        );
+
+        const data = await result.json();
+
+        if (!result.ok) {
+            throw new Error(
+                data.error || "Connection failed."
+            );
+        }
+
+        if (!data.reply) {
+            throw new Error("Lucy received an empty response.");
+        }
+
+        lastResponse = data.reply;
+
+        responseBox.innerText = data.reply;
+
+        showStatus("LUCY IS ONLINE");
+
+        speak(data.reply);
+
+    } catch (error) {
+
+        console.error(error);
+
+        lastResponse =
+            "I could not connect to my AI brain. Please check your internet connection and try again.";
+
+        responseBox.innerText = lastResponse;
+
+        showStatus("CONNECTION PROBLEM");
+
+    } finally {
+
+        sendButton.disabled = false;
+
     }
+}
 
-    else if (input.includes("your name")) {
-        answer = "My name is Lucy. I am your personal assistant.";
-    }
+function showStatus(message) {
 
-    else if (input.includes("who created you")) {
-        answer = "I was created by Elijah.";
-    }
+    document.getElementById("status").innerText =
+        message;
 
-    else if (input.includes("time")) {
-        answer = "The time is " + new Date().toLocaleTimeString();
-    }
-
-    else if (input.includes("date")) {
-        answer = "Today is " + new Date().toDateString();
-    }
-
-    else if (input.includes("how are you")) {
-        answer = "I am operational and ready to assist you.";
-    }
-
-    else {
-        answer = "I heard you say " + message +
-        ". My advanced AI brain is coming soon.";
-    }
-
-    lastResponse = answer;
-
-    document.getElementById("response").innerText = answer;
-
-    speak(answer);
 }
 
 function speak(text) {
 
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis) {
+        return;
+    }
 
     speechSynthesis.cancel();
 
-    let voice = new SpeechSynthesisUtterance(text);
+    const voice =
+        new SpeechSynthesisUtterance(text);
 
     voice.lang = "en-GB";
     voice.rate = 0.9;
     voice.pitch = 1;
 
     speechSynthesis.speak(voice);
+
 }
 
 function repeat() {
+
     speak(lastResponse);
+
 }
 
 function listen() {
@@ -198,46 +280,90 @@ function listen() {
         window.webkitSpeechRecognition;
 
     if (!Recognition) {
-        alert("Speech recognition is unavailable in this browser.");
+
+        showStatus(
+            "VOICE INPUT NOT SUPPORTED IN THIS BROWSER"
+        );
+
         return;
     }
 
-    let recognition = new Recognition();
+    recognition = new Recognition();
 
     recognition.lang = "en-GB";
 
+    recognition.continuous = false;
+
+    recognition.interimResults = false;
+
     recognition.onstart = function() {
-        document.getElementById("status").innerText =
-        "LUCY IS LISTENING";
+
+        showStatus("LISTENING TO YOU...");
+
     };
 
     recognition.onresult = function(event) {
 
-        let words = event.results[0][0].transcript;
+        const spokenMessage =
+            event.results[0][0].transcript;
 
-        document.getElementById("message").value = words;
+        document.getElementById("message").value =
+            spokenMessage;
 
-        respond(words);
+        respond(spokenMessage);
+
+    };
+
+    recognition.onerror = function() {
+
+        showStatus("VOICE RECOGNITION ERROR");
+
     };
 
     recognition.onend = function() {
-        document.getElementById("status").innerText =
-        "SYSTEM ONLINE";
+
+        if (
+            document.getElementById("status").innerText
+            === "LISTENING TO YOU..."
+        ) {
+            showStatus("LUCY IS ONLINE");
+        }
+
     };
 
     recognition.start();
+
 }
 
-// Register offline support when served through HTTPS.
-if ("serviceWorker" in navigator &&
-    location.protocol.startsWith("http")) {
+document.getElementById("message")
+.addEventListener("keydown", function(event) {
 
-    navigator.serviceWorker.register("./service-worker.js")
-    .catch(error => console.log("Offline setup:", error));
+    if (event.key === "Enter") {
+        talk();
+    }
+
+});
+
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener("load", function() {
+
+        navigator.serviceWorker.register(
+            "./service-worker.js"
+        ).catch(function(error) {
+
+            console.log(
+                "Service worker registration failed:",
+                error
+            );
+
+        });
+
+    });
 
 }
 
 </script>
 
 </body>
-</html>
+    </html>
